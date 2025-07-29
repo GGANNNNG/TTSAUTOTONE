@@ -1,0 +1,87 @@
+<div id="gtts_settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>Google Native TTS</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <div id="gtts_status">
+                Provider Loaded
+            </div>
+            <div id="gtts_provider_settings">
+            </div>
+            <br>
+            <div>
+                <label class="checkbox_label" for="gtts_enabled">
+                    <input type="checkbox" id="gtts_enabled" name="gtts_enabled">
+                    <small data-i18n="gtts_enabled">Enabled</small>
+                </label>
+                <label class="checkbox_label" for="gtts_auto_generation">
+                    <input type="checkbox" id="gtts_auto_generation">
+                    <small data-i18n="Auto Generation">Auto Generation</small>
+                </label>
+                <label class="checkbox_label" for="gtts_auto_tone_sequential_narration" title="Gemini가 생성한 각 대사를 순차적으로 하나씩 나레이션합니다.">
+                    <input type="checkbox" id="gtts_auto_tone_sequential_narration">
+                    <small data-i18n="Narrate dialogues sequentially">대사별 순차적 나레이션</small>
+                </label>
+            </div>
+            <hr>
+            <div id="gtts_tone_prompt_block">
+                <div class="range-block-title justifyLeft">
+                    <small>Auto Tone Prompt</small>
+                </div>
+                <textarea id="gtts_tone_prompt" class="text_pole" rows="8"></textarea>
+                <input id="gtts_restore_tone_prompt" class="menu_button" type="button" value="Restore Default Prompt">
+            </div>
+            <div id="gtts_tone_language_block" class="inline-flex-item">
+                 <div class="range-block-title justifyLeft">
+                    <small>Dialogue Translation Language</small>
+                </div>
+                <select id="gtts_tone_language_select"></select>
+                <input id="gtts_add_custom_language" class="menu_button" type="button" value="Add Language">
+            </div>
+            <div id="gtts_translation_prompt_block">
+                <div class="range-block-title justifyLeft">
+                    <small>Dialogue Translation Prompt</small>
+                </div>
+                <textarea id="gtts_translation_prompt" class="text_pole" rows="8"></textarea>
+                <input id="gtts_restore_translation_prompt" class="menu_button" type="button" value="Restore Default Prompt">
+            </div>
+            <div id="gtts_playback_rate_block" class="range-block">
+                <hr>
+                <div class="range-block-title justifyLeft">
+                    <small data-i18n="Audio Playback Speed">Audio Playback Speed</small>
+                </div>
+                <div class="range-block-range-and-counter">
+                    <div class="range-block-range">
+                        <input type="range" id="gtts_playback_rate" name="volume" min="0" max="3" step="0.05">
+                    </div>
+                    <div class="range-block-counter">
+                        <input type="number" min="0" max="3" step="0.05" data-for="gtts_playback_rate" id="gtts_playback_rate_counter">
+                    </div>
+                </div>
+            </div>
+            <div id="gtts_prefix_prompt_block">
+                <hr>
+                <div class="range-block-title justifyLeft">
+                    <small>TTS Prefix Prompt</small>
+                    <div class="info_button" data-i18n="[title]This text will be added to the beginning of every TTS request. Useful for global instructions." title="This text will be added to the beginning of every TTS request. Useful for global instructions.">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </div>
+                </div>
+                <textarea id="gtts_prefix_prompt" class="text_pole" rows="2"></textarea>
+            </div>
+            <label class="checkbox_label" for="gtts_prefix_every_dialogue" title="활성화 시, Auto Tone 기능으로 생성된 모든 개별 대사 지시문 앞에 위의 TTS Prefix Prompt를 각각 추가합니다.">
+                <input type="checkbox" id="gtts_prefix_every_dialogue">
+                <small>모든 대사 지시문 앞에 접두사 추가</small>
+            </label>
+            <div id="gtts_voicemap_block">
+            </div>
+            <hr>
+            <div class="gtts_buttons">
+                <input id="gtts_voices" class="menu_button" type="submit" value="Available voices" />
+                <input id="gtts_refresh" class="menu_button" type="submit" value="Reload Voices" />
+            </div>
+        </div>
+    </div>
+</div>
