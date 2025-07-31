@@ -394,10 +394,30 @@ async function processTtsQueue() {
     const useDirectTone = extension_settings.gtts.direct_tone_specification;
 
     if (useDirectTone) {
+        // 다양한 인용 부호(“”, «», 「」, 『』, ＂＂, "") 안의 대사를 추출하는 정규식
+        const dialogueRegex = /(?:[“«「『＂](.*?)[\”»」』＂])|(?:"(.*?)"(?![a-zA-Z]))/g;
+        const matches = [...text.matchAll(dialogueRegex)];
+        
+        // 추출된 대사만 배열로 만듭니다. (캡처 그룹 1 또는 2 사용)
+        const dialogueLines = matches.map(match => (match[1] || match[2]).trim()).filter(line => line);
+
+        // 텍스트에 대사가 없으면 이 TTS 작업을 건너뜁니다.
+        if (dialogueLines.length === 0) {
+            console.log("Direct Tone mode: No dialogue found, skipping TTS for this message.");
+            completeTtsJob();
+            return;
+        }
+
+        // 추출된 대사들을 하나의 문자열로 합칩니다.
+        const dialogueOnlyText = dialogueLines.join(' ');
         const prefixPrompt = extension_settings.gtts.tts_prefix_prompt?.trim();
+
         if (prefixPrompt) {
-            // "Style instructions → [prefix]\nSpeaker: [dialogue]" 형식으로 재구성
-             text = `Style instructions → ${prefixPrompt}\nSpeaker: ${text}`;
+            // "Style instructions → [prefix]\nSpeaker: [dialogue]" 형식으로 재구성합니다.
+            text = `Style instructions → ${prefixPrompt}\nSpeaker: ${dialogueOnlyText}`;
+        } else {
+            // 접두사 프롬프트가 없으면 추출된 대사만 사용합니다.
+            text = dialogueOnlyText;
         }
     }
     // Gemini 톤 분석 로직 
