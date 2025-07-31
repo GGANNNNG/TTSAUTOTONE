@@ -24,8 +24,23 @@
                     <input type="checkbox" id="gtts_auto_tone_sequential_narration">
                     <small data-i18n="Narrate dialogues sequentially">대사별 순차적 나레이션</small>
                 </label>
+                <label class="checkbox_label" for="gtts_direct_tone_specification" title="활성화 시, Gemini 톤 분석을 건너뛰고 TTS Prefix Prompt에 입력된 내용을 직접 톤 지시문으로 사용합니다.">
+                    <input type="checkbox" id="gtts_direct_tone_specification">
+                    <small>직접 톤 지정</small>
+                </label>
             </div>
             <hr>
+            <div id="gtts_tone_model_block" class="inline-flex-item">
+                <div class="range-block-title justifyLeft">
+                   <small>Tone Analysis Model</small>
+               </div>
+               <select id="gtts_tone_model_select">
+                   <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                   <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                    <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+               </select>
+           </div>
             <div id="gtts_tone_prompt_block">
                 <div class="range-block-title justifyLeft">
                     <small>Auto Tone Prompt</small>
@@ -65,13 +80,13 @@
                 <hr>
                 <div class="range-block-title justifyLeft">
                     <small>TTS Prefix Prompt</small>
-                    <div class="info_button" data-i18n="[title]This text will be added to the beginning of every TTS request. Useful for global instructions." title="This text will be added to the beginning of every TTS request. Useful for global instructions.">
+                    <div class="info_button" data-i18n="[title]This text will be added to the beginning of every TTS request. Useful for global instructions or direct tone specification." title="This text will be added to the beginning of every TTS request. Useful for global instructions or direct tone specification.">
                         <i class="fa-solid fa-circle-info"></i>
                     </div>
                 </div>
                 <textarea id="gtts_prefix_prompt" class="text_pole" rows="2"></textarea>
             </div>
-            <label class="checkbox_label" for="gtts_prefix_every_dialogue" title="활성화 시, Auto Tone 기능으로 생성된 모든 개별 대사 지시문 앞에 위의 TTS Prefix Prompt를 각각 추가합니다.">
+            <label class="checkbox_label" for="gtts_prefix_every_dialogue" title="활성화 시, Auto Tone 기능으로 생성된 모든 개별 대사 지시문 앞에 위의 TTS Prefix Prompt를 각각 추가합니다. '직접 톤 지정' 모드에서는 적용되지 않습니다.">
                 <input type="checkbox" id="gtts_prefix_every_dialogue">
                 <small>모든 대사 지시문 앞에 접두사 추가</small>
             </label>

@@ -16,7 +16,7 @@ const UPDATE_INTERVAL = 1000;
 const wrapper = new ModuleWorkerWrapper(moduleWorker);
 
 let voiceMapEntries = [];
-let voiceMap = {}; // {charName:voiceid, charName2:voiceid2}
+let voiceMap = {}; 
 let lastChatId = null;
 let lastMessage = null;
 let lastMessageHash = null;
@@ -24,9 +24,9 @@ let currentInitVoiceMapPromise = null;
 
 const DEFAULT_VOICE_MARKER = '[Default Voice]';
 const DISABLED_VOICE_MARKER = 'disabled';
-const PROVIDER_NAME = 'GoogleNative'; // 단일 공급자 이름 정의
+const PROVIDER_NAME = 'GoogleNative';
 
-let gttsProvider = new GoogleNativeTtsProvider(); // Google Native Provider를 직접 인스턴스화
+let gttsProvider = new GoogleNativeTtsProvider(); 
 
 export function getPreviewString(lang) {
     const previewStrings = {
@@ -69,7 +69,7 @@ export function getPreviewString(lang) {
     return previewStrings[lang] ?? fallbackPreview;
 }
 
-// TTS 공급자 저장 및 변경 로직 간소화
+
 export function saveTtsProviderSettings() {
     extension_settings.gtts[PROVIDER_NAME] = gttsProvider.settings;
     updateVoiceMap();
@@ -151,7 +151,7 @@ function processAndQueueTtsMessage(message) {
 
 // Audio Control
 let audioElement = new Audio();
-audioElement.id = 'gtts_audio'; // FIX: Unique ID
+audioElement.id = 'gtts_audio'; 
 audioElement.autoplay = true;
 
 let audioJobQueue = [];
@@ -184,7 +184,7 @@ async function playAudioData(audioJob) {
     });
 }
 
-// FIX: Make preview function name unique to avoid conflicts
+
 window['gtts_preview'] = function (id) {
     gttsProvider.previewTtsVoice(id);
 };
@@ -208,7 +208,7 @@ async function onTtsVoicesClick() {
 }
 
 function updateUiAudioPlayState() {
-    // FIX: Target unique extension menu item
+    
     if (extension_settings.gtts.enabled) {
         $('#gttsExtensionMenuItem').show();
         let img = (!audioElement.paused || isTtsProcessing())
@@ -232,7 +232,7 @@ function onAudioControlClicked() {
 }
 
 function addAudioControl() {
-    // FIX: Use unique IDs for all created elements
+    
     $('#tts_wand_container').append(`
         <div id="gttsExtensionMenuItem" class="list-group-item flex-container flexGap5">
             <div id="gtts_media_control" class="extensionsMenuExtensionButton "/></div>
@@ -323,6 +323,7 @@ async function getTonalTextFromGemini(text) {
     let basePrompt = extension_settings.gtts.tts_tone_prompt;
     const language = extension_settings.gtts.tts_tone_language;
     const translationTemplate = extension_settings.gtts.tts_translation_prompt_template;
+    const model = extension_settings.gtts.tone_model || 'gemini-2.5-flash'; 
 
     let finalPrompt = basePrompt;
 
@@ -336,7 +337,7 @@ async function getTonalTextFromGemini(text) {
     ];
 
     const parameters = {
-        model: 'gemini-2.5-flash',
+        model: model,
         messages: messages,
         temperature: 0.7,
         stream: false,
@@ -379,7 +380,7 @@ async function getTonalTextFromGemini(text) {
     } catch (error) {
         console.error('Failed to call Gemini for tone analysis:', error);
         toastr.error(`Gemini tone analysis failed: ${error.message}`);
-        return text; // 오류 발생 시 원본 텍스트 반환
+        throw error; // 오류 발생 시 원본 텍스트 반환
     }
 }
 
@@ -390,102 +391,94 @@ async function processTtsQueue() {
 
     currentTtsJob = ttsJobQueue.shift();
     let text = currentTtsJob.mes;
+    const useDirectTone = extension_settings.gtts.direct_tone_specification;
 
-    // 1. 순차적 나레이션 모드에서 톤 분석이 아직 수행되지 않은 경우
-    if (extension_settings.gtts.auto_tone_sequential_narration && !currentTtsJob.isToneProcessed) {
-        try {
-            let tonalText = await getTonalTextFromGemini(text);
-
-            // 요청된 로직: LLM이 "지시문: 「대사」" 형식으로 응답하면, 형식 수정을 위해 콜론(:)과 대사 사이에 개행(\n)을 삽입합니다.
-            tonalText = tonalText.replace(/: *([“«「『＂].*?[”»」』＂]|".*?")/g, ':\n$1');
-
-            const dialogueLines = tonalText.split('\n').filter(line => line.trim().length > 0);
-            const newJobs = [];
-
-            // 지시문과 대사를 2줄씩 짝지어 하나의 TTS 작업으로 그룹화합니다.
-            for (let i = 0; i < dialogueLines.length; i += 2) {
-                // 다음 줄(대사)이 있는지 확인하여 쌍을 이룹니다.
-                if (dialogueLines[i + 1]) {
-                    const combinedMessage = dialogueLines[i] + '\n' + dialogueLines[i + 1];
-                    newJobs.push({
-                        ...currentTtsJob,
-                        mes: combinedMessage,
-                        isToneProcessed: true,
-                    });
-                } else {
-                    // 쌍이 맞지 않는 마지막 줄이 있다면 단독으로 처리합니다.
-                    newJobs.push({
-                        ...currentTtsJob,
-                        mes: dialogueLines[i],
-                        isToneProcessed: true,
-                    });
-                }
-            }
-
-            if (newJobs.length > 0) {
-                // 새로 생성된 묶음 작업들을 큐의 맨 앞에 추가합니다.
-                ttsJobQueue.unshift(...newJobs);
-            }
-        } catch (error) {
-            toastr.error(`Sequential Tone TTS failed: ${error.message}`);
-            console.error(error);
-        } finally {
-            completeTtsJob();
-            return;
+    if (useDirectTone) {
+        const prefixPrompt = extension_settings.gtts.tts_prefix_prompt?.trim();
+        if (prefixPrompt) {
+            // "Style instructions → [prefix]\nSpeaker: [dialogue]" 형식으로 재구성
+             text = `Style instructions → ${prefixPrompt}\nSpeaker: ${text}`;
         }
     }
-    // 2. 일반 톤 분석 모드(순차적 아님)
+    // Gemini 톤 분석 로직 
     else if (!currentTtsJob.isToneProcessed) {
-        let tonalText = await getTonalTextFromGemini(text);
+        try { 
+            let tonalText = await getTonalTextFromGemini(text);
 
-        // 요청된 로직: LLM이 "지시문: 「대사」" 형식으로 응답하면, 콜론(:)과 대사 사이에 개행(\n)을 삽입합니다.
-        tonalText = tonalText.replace(/: *([“«「『＂].*?[”»」』＂]|".*?")/g, ':\n$1');
+            
+            tonalText = tonalText.replace(/: *([“«「『＂].*?[”»」』＂]|".*?")/g, ':\n$1');
 
-        text = tonalText;
+            text = tonalText;
+        } catch (error) { 
+            
+            console.error('Stopping TTS job due to Gemini analysis failure.', error);
+            completeTtsJob(); 
+            return;           
+        } 
+        // 순차적 나레이션 모드
+        if (extension_settings.gtts.auto_tone_sequential_narration) {
+            try {
+                let tonalText = await getTonalTextFromGemini(text);
+                tonalText = tonalText.replace(/: *([“«「『＂].*?[”»」』＂]|".*?")/g, ':\n$1');
+                const dialogueLines = tonalText.split('\n').filter(line => line.trim().length > 0);
+                const newJobs = [];
+
+                for (let i = 0; i < dialogueLines.length; i += 2) {
+                    if (dialogueLines[i + 1]) {
+                        const combinedMessage = dialogueLines[i] + '\n' + dialogueLines[i + 1];
+                        newJobs.push({ ...currentTtsJob, mes: combinedMessage, isToneProcessed: true });
+                    } else {
+                        newJobs.push({ ...currentTtsJob, mes: dialogueLines[i], isToneProcessed: true });
+                    }
+                }
+                if (newJobs.length > 0) ttsJobQueue.unshift(...newJobs);
+            } catch (error) {
+                toastr.error(`Sequential Tone TTS failed: ${error.message}`);
+                console.error(error);
+            } finally {
+                completeTtsJob();
+                return;
+            }
+        }
+        
+        else {
+            let tonalText = await getTonalTextFromGemini(text);
+            tonalText = tonalText.replace(/: *([“«「『＂].*?[”»」』＂]|".*?")/g, ':\n$1');
+            text = tonalText;
+        }
     }
+
 
     text = substituteParams(text);
-
     text = text.replace(/!\[.*?]\([^)]*\)/g, '');
-
-    // *** 로직 수정: 개행(\n)은 유지하고 다른 불필요한 공백만 정리 ***
     text = text.split('\n').map(line => line.replace(/[ \t]+/g, ' ').trim()).join('\n');
 
-    // --- START: 수정된 접두사 로직 ---
+    if (!useDirectTone) {
+        const prefixPrompt = extension_settings.gtts.tts_prefix_prompt?.trim();
+        const prefixEveryDialogue = extension_settings.gtts.prefix_every_dialogue;
 
-    const prefixPrompt = extension_settings.gtts.tts_prefix_prompt?.trim();
-    const prefixEveryDialogue = extension_settings.gtts.prefix_every_dialogue;
-
-    // 자동 톤 분석을 항상 사용하므로, 관련 접두사 로직을 무조건 실행
-    text = text.split('\n')
-               .map(line => {
-                   const trimmedLine = line.trim();
-                   if (trimmedLine.length === 0) {
-                       return ''; // 빈 줄 유지
-                   }
-                   // 따옴표로 시작하는 대사로 추정되는 줄 앞에 "Speaker: " 추가
-                   if (trimmedLine.match(/^[“«「『＂"]/)) {
-                       return `Speaker: ${line}`;
-                   }
-                   // 그렇지 않으면, 지시문으로 처리
-                   else {
-                       let instruction = line;
-                       // `prefix_every_dialogue`가 켜져 있으면 모든 지시문에 접두사를 추가합니다.
-                       if (prefixEveryDialogue && prefixPrompt) {
-                           instruction = `${prefixPrompt} ${instruction}`;
+        text = text.split('\n')
+                   .map(line => {
+                       const trimmedLine = line.trim();
+                       if (trimmedLine.length === 0) return '';
+                       if (trimmedLine.match(/^[“«「『＂"]/)) {
+                           return `Speaker: ${line}`;
+                       } else {
+                           let instruction = line;
+                           if (prefixEveryDialogue && prefixPrompt) {
+                               instruction = `${prefixPrompt} ${instruction}`;
+                           }
+                           return `Style instructions → ${instruction}`;
                        }
-                       return `Style instructions → ${instruction}`;
-                   }
-               })
-               .filter(line => line.length > 0) // 처리 후 비어버린 줄 제거
-               .join('\n');
+                   })
+                   .filter(line => line.length > 0)
+                   .join('\n');
 
-    // `prefix_every_dialogue`가 꺼져 있을 경우, 첫 번째 지시문에만 접두사를 붙입니다.
-    if (!prefixEveryDialogue && prefixPrompt) {
-        text = `${prefixPrompt} ${text}`;
+        if (!prefixEveryDialogue && prefixPrompt) {
+            text = `${prefixPrompt} ${text}`;
+        }
     }
 
-    // --- END: 수정된 접두사 로직 ---
 
     console.log(`Google TTS: ${text}`);
     const char = currentTtsJob.name;
@@ -496,7 +489,7 @@ async function processTtsQueue() {
     }
     if (char && !voiceMap[char]) await initVoiceMap();
     try {
-        if (!text.trim()) { // 공백만 있는 텍스트는 무시하도록 .trim() 추가
+        if (!text.trim()) {
             console.warn('Got empty text in TTS queue job.');
             completeTtsJob();
             return;
@@ -537,9 +530,9 @@ async function playFullConversation() {
     ttsJobQueue = chat;
 }
 
-window['playFullGoogleConversation'] = playFullConversation; // FIX: Unique name
+window['playFullGoogleConversation'] = playFullConversation; 
 
-// Extension UI and Settings
+
 
 const defaultSettings = {
     voiceMap: '',
@@ -547,7 +540,8 @@ const defaultSettings = {
     auto_generation: true,
     playback_rate: 1,
     auto_tone_sequential_narration: false,
-    // 프롬프트 수정: 지시문과 대사 사이에 줄바꿈을 명시적으로 요구
+    direct_tone_specification: false,
+    tone_model: 'gemini-2.5-flash',
     tts_tone_prompt: `You will be given a text that contains both narration and dialogue. Dialogue is enclosed in any of the following quotation marks: “”, «», 「」, 『』, or ＂＂. Your task is to analyze the emotional and situational context from the narration.
 
 Then, for each line of dialogue, you MUST create a specific instruction for a Text-to-Speech (TTS) engine.
@@ -566,6 +560,7 @@ Each instruction MUST end with a colon \`:\`, followed by a NEWLINE, and then th
 🔹 Do NOT include narration in your output.
 🔹 Do NOT explain your reasoning.
 🔹 Maintain the original order of dialogue.
+🔹 Do NOT use 'Slow pace'.
 
 ---
 
@@ -593,9 +588,9 @@ The final output format MUST be: [Instruction in {{language}}]: followed by a NE
 
 ---
 Example for target language "Japanese":
-> TTS in an irritated and grumpy voice:
+> イライラして不機嫌な声でTTSして。:
 「また一つコレクションが増えたな。」
-> Say with a sad and small voice:
+> 悲しそうで小さな声で言って。:
 「ごめんなさい…」
 
 Example for target language "English":
@@ -639,12 +634,14 @@ function loadSettings() {
             extension_settings.gtts[key] = defaultSettings[key];
         }
     }
-    // FIX: Target unique IDs
+
     $('#gtts_enabled').prop('checked', extension_settings.gtts.enabled);
     $('#gtts_auto_generation').prop('checked', extension_settings.gtts.auto_generation);
     $('#gtts_auto_tone_sequential_narration').prop('checked', extension_settings.gtts.auto_tone_sequential_narration);
+    $('#gtts_direct_tone_specification').prop('checked', extension_settings.gtts.direct_tone_specification); 
     $('#gtts_playback_rate').val(extension_settings.gtts.playback_rate);
     $('#gtts_playback_rate_counter').val(Number(extension_settings.gtts.playback_rate).toFixed(2));
+    $('#gtts_tone_model_select').val(extension_settings.gtts.tone_model);
     $('#gtts_tone_prompt').val(extension_settings.gtts.tts_tone_prompt);
     $('#gtts_translation_prompt').val(extension_settings.gtts.tts_translation_prompt_template);
     $('#gtts_prefix_prompt').val(extension_settings.gtts.tts_prefix_prompt);
@@ -655,7 +652,7 @@ function loadSettings() {
 }
 
 function setTtsStatus(status, success) {
-    // FIX: Target unique status element
+
     $('#gtts_status').text(status).css('color', success ? '' : 'red');
 }
 
@@ -685,9 +682,9 @@ function createCheckboxHandler(settingName) {
     };
 }
 
-// Event handlers
 const onAutoGenerationClick = createCheckboxHandler('auto_generation');
 const onAutoToneSequentialNarrationClick = createCheckboxHandler('auto_tone_sequential_narration');
+const onDirectToneSpecificationClick = createCheckboxHandler('direct_tone_specification'); 
 const onPrefixEveryDialogueClick = createCheckboxHandler('prefix_every_dialogue');
 const onTonePromptInput = function() {
     extension_settings.gtts.tts_tone_prompt = $(this).val();
@@ -699,7 +696,7 @@ const onTranslationPromptInput = function() {
     saveSettingsDebounced();
 };
 
-const onPrefixPromptInput = function() { // 새 핸들러 추가
+const onPrefixPromptInput = function() { 
     extension_settings.gtts.tts_prefix_prompt = $(this).val();
     saveSettingsDebounced();
 };
@@ -721,6 +718,12 @@ const onToneLanguageChange = function() {
     saveSettingsDebounced();
 };
 
+const onToneModelChange = function() { 
+
+    extension_settings.gtts.tone_model = $(this).val();
+    saveSettingsDebounced();
+};
+
 const onAddCustomLanguageClick = async function() {
     const newLang = await callGenericPopup('Enter the new language name (e.g., "French"):', POPUP_TYPE.INPUT);
     if (newLang) {
@@ -729,7 +732,7 @@ const onAddCustomLanguageClick = async function() {
         }
         if (!extension_settings.gtts.tts_tone_custom_languages.includes(newLang)) {
             extension_settings.gtts.tts_tone_custom_languages.push(newLang);
-            extension_settings.gtts.tts_tone_language = newLang; // 새로 추가한 언어를 바로 선택
+            extension_settings.gtts.tts_tone_language = newLang; 
             updateToneLanguageDropdown();
             saveSettingsDebounced();
         }
@@ -737,7 +740,7 @@ const onAddCustomLanguageClick = async function() {
 };
 
 async function loadTtsProvider() {
-    // FIX: Target unique settings container
+    
     $('#gtts_provider_settings').html(gttsProvider.settingsHtml);
 
     if (!(PROVIDER_NAME in extension_settings.gtts)) {
@@ -867,7 +870,7 @@ class VoiceMapEntry {
             `<option>${DISABLED_VOICE_MARKER}</option>` :
             `<option>${DEFAULT_VOICE_MARKER}</option><option>${DISABLED_VOICE_MARKER}</option>`;
 
-        // FIX: Use unique IDs and classes for all generated elements
+
         let template = `
             <div class='gtts_voicemap_block_char flex-container flexGap5'>
                 <span id='gtts_voicemap_char_label_${sanitizedName}'>${this.name}</span>
@@ -876,9 +879,8 @@ class VoiceMapEntry {
                 </select>
             </div>
         `;
-        $('#gtts_voicemap_block').append(template);
-
-        // Populate voice ID select list
+        $('#gtts_voicemap_block').append(template)
+        
         for (const voiceId of voiceIds) {
             const option = document.createElement('option');
             option.innerText = voiceId.name;
@@ -924,7 +926,7 @@ function parseVoiceMap(voiceMapString) {
 }
 
 async function initVoiceMapInternal(unrestricted) {
-    // FIX: Gate on its own unique 'enabled' checkbox
+
     const enabled = $('#gtts_enabled').is(':checked');
     if (!enabled) {
         return;
@@ -940,17 +942,15 @@ async function initVoiceMapInternal(unrestricted) {
 
     setTtsStatus('Google Native TTS Provider Loaded', true);
 
-    // FIX: Clear its own unique voiceMap block
     $('#gtts_voicemap_block').empty();
     voiceMapEntries = [];
 
     const characters = getCharacters(unrestricted);
 
-    // FIX: Correctly read saved voiceMap from its own settings object
     let voiceMapFromSettings = {};
-    const saved = extension_settings.gtts[PROVIDER_NAME]?.voiceMap; // Corrected path
+    const saved = extension_settings.gtts[PROVIDER_NAME]?.voiceMap;
     if (saved) {
-        if (typeof saved === 'string' && saved) { // check for non-empty string
+        if (typeof saved === 'string' && saved) { 
             voiceMapFromSettings = parseVoiceMap(saved);
         } else if (typeof saved === 'object') {
             voiceMapFromSettings = saved;
@@ -964,7 +964,7 @@ async function initVoiceMapInternal(unrestricted) {
     }
     catch {
         toastr.error('Google Native TTS Provider failed to return voice ids.');
-        return; // Exit if voices can't be fetched
+        return; 
     }
 
     for (const character of characters) {
@@ -986,7 +986,7 @@ async function initVoiceMapInternal(unrestricted) {
     updateVoiceMap();
 }
 
-// FIX: This entire jQuery block has been revised to use unique IDs and avoid conflicts.
+
 jQuery(async function () {
     const addCustomTtsButton = (mesBlock) => {
         if (mesBlock.find('.mes_google_native_narrate').length > 0) {
@@ -1016,19 +1016,21 @@ jQuery(async function () {
     });
     chatObserver.observe(document.getElementById('chat'), { childList: true, subtree: true });
 
-    // Render the settings template
+    
     const settingsHtmlString = await renderExtensionTemplateAsync('third-party/google-native-tts', 'settings');
     const settingsHtml = $(settingsHtmlString);
 
-    // Append the modified, non-conflicting settings UI
+    
     $('#extensions_settings').append(settingsHtml);
 
-    // Attach event handlers using the new, unique IDs
+    
     $('#gtts_refresh').on('click', onRefreshClick);
     $('#gtts_enabled').on('click', onEnableClick);
     $('#gtts_auto_generation').on('click', onAutoGenerationClick);
     $('#gtts_auto_tone_sequential_narration').on('click', onAutoToneSequentialNarrationClick);
+    $('#gtts_direct_tone_specification').on('click', onDirectToneSpecificationClick);
     $('#gtts_voices').on('click', onTtsVoicesClick);
+    $('#gtts_tone_model_select').on('change', onToneModelChange);
     $('#gtts_tone_prompt').on('input', onTonePromptInput);
     $('#gtts_translation_prompt').on('input', onTranslationPromptInput);
     $('#gtts_prefix_prompt').on('input', onPrefixPromptInput);
@@ -1044,17 +1046,18 @@ jQuery(async function () {
         saveSettingsDebounced();
     });
 
-    // Use the unique class for the click handler
+    
     $(document).on('click', '.mes_google_native_narrate', onNarrateOneMessage);
 
-    // Initial setup
+    
     loadSettings();
     loadTtsProvider();
     addAudioControl();
     addButtonsToExistingMessages();
     setInterval(wrapper.update.bind(wrapper), UPDATE_INTERVAL);
 
-    // Event listeners
+   
+    
     eventSource.on(event_types.MESSAGE_SWIPED, resetTtsPlayback);
     eventSource.on(event_types.CHAT_CHANGED, ()=>{
         onChatChanged();
@@ -1065,7 +1068,7 @@ jQuery(async function () {
     eventSource.makeLast(event_types.CHARACTER_MESSAGE_RENDERED, (messageId) => onMessageEvent(messageId));
     eventSource.makeLast(event_types.USER_MESSAGE_RENDERED, (messageId) => onMessageEvent(messageId));
 
-    // Unique slash command
+    
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({
         name: 'gspeak',
         callback: async (args, value) => {
